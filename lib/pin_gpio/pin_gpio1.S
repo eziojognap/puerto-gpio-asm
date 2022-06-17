@@ -36,13 +36,46 @@ endfun Pin_init
 
 defun Pin_configura
     // R0: self, R1: config
-    bx lr
+    push {R4-R6,LR}
+    ldr R3, [R0,#Pin__puerto]   // carga el puerto
+    ldr R3, [R0, #Pin__numero]  // carga el pin
+    cmp R3, #7
+
+    b 0f
+0:
+
+1:
+    ldr R6, [R2,R0]  // saca r? para
+    subs R3,R5
+    lsls R3, #2 // Multiplica por 4, 2 al cuadrado. corre dos lugares a la izq es decir dos al cuadrado. 2^n
+    // lsl y s afecta a las banderas. si quiero ver si hay disponible una instruccion de 16 bits, porque lsl genera una instruccion de 32 bits
+    // LAS INTRUCCIONES QUE AFECTAN LOS FLAGS SON DE 16 BITS!
+    movs R4, #0xF
+    lsls R4, R3
+    bics R6, R4 // es ands con el segundo operando negado, "bit clear"
+    lsls R1,R3
+    orrs R6,R1 
+    str R0,[R2,R0]
+    pop {R4-R6, PC}
+   
 endfun Pin_configura
 
 
 
 defun Pin_escribe
     // R0: self, R1: valor
+    ldr R2, [R0,#Pin__puerto]   // carga el puerto
+    ldr R3, [R0,#Pin__numero]  // carga el pin
+    movs R0,#1
+    lsls R0,R3
+    cbz R1,0f
+    str R0,[R2,#BSRR]
+    b 1f
+0:
+    str R0,[R2,#BSRR]
+1:
+    
+
     bx lr
 endfun Pin_escribe
 
