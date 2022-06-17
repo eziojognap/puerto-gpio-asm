@@ -34,58 +34,109 @@ endfun Pin_init
 .set BSRR,0x10
 .set BRR,0x14
 
+
+
 defun Pin_configura
     // R0: self, R1: config
-    push {R4-R6,LR}
-    ldr R3, [R0,#Pin__puerto]   // carga el puerto
-    ldr R3, [R0, #Pin__numero]  // carga el pin
-    cmp R3, #7
-
-    b 0f
-0:
-
-1:
-    ldr R6, [R2,R0]  // saca r? para
-    subs R3,R5
-    lsls R3, #2 // Multiplica por 4, 2 al cuadrado. corre dos lugares a la izq es decir dos al cuadrado. 2^n
-    // lsl y s afecta a las banderas. si quiero ver si hay disponible una instruccion de 16 bits, porque lsl genera una instruccion de 32 bits
-    // LAS INTRUCCIONES QUE AFECTAN LOS FLAGS SON DE 16 BITS!
-    movs R4, #0xF
-    lsls R4, R3
-    bics R6, R4 // es ands con el segundo operando negado, "bit clear"
-    lsls R1,R3
-    orrs R6,R1 
-    str R0,[R2,R0]
-    pop {R4-R6, PC}
+    push {R4-R6,LR}     // utilizare los registros R4 a R6 entonces guardo sus 
+                        // valores en la pila para poder utilizarlos
+                        
+    // Realizo una mascara para tener en R2 lo que hay en R1
+    and R2,R1,#0xF      
    
-endfun Pin_configura
+    cmp R2,#8
+    bne 0f
 
+    push {R0-R1}
+    lsrs R1,#4
+    bl Pin_escribe
+    pop {R0-R1}
+0:
+    
+
+    ldr R2,[R0,#Pin__puerto]
+    ldr R3,[R0,#Pin__numero]
+
+    // Comparo el numero de pin con 7 para ver si uso el registro CRL o CRH
+    cmp R3,#7
+    // Si es menor salga al 0 siguiente
+    bls 0f
+
+    mov R5,#8
+    mov R0,#CRH
+    b   1f
+0:  
+    mov R5,#0
+    mov R0,#CRL
+1:
+    // A R6 le cargo R2: puerto del pin sumado con R0: CRH/CRL
+    ldr R6,[R2,R0]
+    // Resto R3-R5 y lo guardo en R3
+    subs R3,R5
+    // Hago un shift logico hacia la izq
+    lsls R3,#2
+    // En R4 cargo una mascara
+    movs R4,#0xF
+    // comparo la mascara con R3
+    lsls R4,R3
+    bics R6,R4
+    ands R1,#0xF
+    lsls R1,R3
+    orr  R6,R1
+    str  R6,[R2,R0]
+    pop  {R4-R6,PC}
+endfun Pin_configura
 
 
 defun Pin_escribe
     // R0: self, R1: valor
-    ldr R2, [R0,#Pin__puerto]   // carga el puerto
-    ldr R3, [R0,#Pin__numero]  // carga el pin
+    ldr R2,[R0,#Pin__puerto]
+    ldr R3,[R0,#Pin__numero]
     movs R0,#1
     lsls R0,R3
-    cbz R1,0f
+    cbz R1, 0f
     str R0,[R2,#BSRR]
     b 1f
 0:
-    str R0,[R2,#BSRR]
+    str R0,[R2,#BRR]
+    b 1f
 1:
-    
+    bx LR
 
-    bx lr
 endfun Pin_escribe
 
 defun Pin_lee
     // R0: self
+    ldr     R1,[R0,#Pin__puerto]        
+    ldr     R2,[R0,#Pin__numero]        
+    mov     R3,#1
+    lsls    R3,R2                       
+    ldr     R0,[R1,#IDR]                
+    tst     R0,R3                       
+    beq     0f                          
+    mov     R0,#1                       
+    b       1f
+0:
+    mov     R0,#0
+1:
     bx lr
-    // R0: valor
+    // R1: valor
 endfun Pin_lee
+
 defun Pin_leeSalida
     // R0: self
+    ldr     R1,[R0,#Pin__puerto]   
+    ldr     R2,[R0,#Pin__numero]        
+    mov     R3,#1
+    lsls    R3,R2                       
+    ldr     R0,[R1,#ODR]                
+    tst     R0,R3                       
+    beq     0f                         
+    mov     R0,#1                      
+    b       1f
+0:
+    mov     R0,#0
+1:
     bx lr
-    // R0: valor
+    // R1: valor
 endfun Pin_leeSalida
